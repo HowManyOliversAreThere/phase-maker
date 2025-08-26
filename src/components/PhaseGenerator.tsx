@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Shuffle, Share2, RotateCcw, Info, CheckCircle, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
@@ -204,7 +204,12 @@ export default function PhaseGenerator() {
                         Phase Maker
                     </h1>
                     <p className="text-lg md:text-xl lg:text-2xl text-white/90 mb-6 max-w-3xl mx-auto leading-relaxed">
-                        Generate random Phase 10 sets for endless replayability.
+                        Generate random <a
+                            href="https://en.wikipedia.org/wiki/Phase_10"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-[#FCD700] hover:text-[#FB041E] transition-colors"
+                        >Phase 10</a> sets for endless replayability.
                     </p>
 
                     {/* Action Buttons */}
@@ -356,6 +361,24 @@ export default function PhaseGenerator() {
                                     </div>
                                 </div>
                             </CardContent>
+
+                            <CardFooter className="text-[#0443A7] border-t">
+                                <div className="w-full text-center">
+                                    <p className="text-sm">
+                                        Want to learn more about Phase 10?{' '}
+                                        <a
+                                            href="https://en.wikipedia.org/wiki/Phase_10"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="hover:text-[#FB041E] transition-colors underline font-medium"
+                                        >
+                                            Visit the Wikipedia page
+                                        </a>
+                                        {' '}for official rules and game history.
+                                    </p>
+                                </div>
+                            </CardFooter>
+
                         </Card>
                     </div>
                 )}
@@ -363,7 +386,7 @@ export default function PhaseGenerator() {
                 {/* Footer */}
                 <footer className="text-center text-white/70 mt-16 py-8 border-t border-white/20">
                     <p className="text-sm">
-                        Made with ❤️ for Phase 10 enthusiasts • Share your custom sets and keep the game fresh!
+                        Phase 10 is a trademark of Mattel. This tool is unofficial and not affiliated with Mattel.
                     </p>
                 </footer>
             </div>
