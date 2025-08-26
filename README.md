@@ -1,69 +1,112 @@
-# React + TypeScript + Vite
+# Phase Maker - Random Phase 10 Generator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern web application that generates random Phase 10 card game sets for endless replayability. Built with React, TypeScript, ShadCN/UI and Tailwind CSS.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Random Phase Generation**: Creates 10 unique phases with progressive difficulty
+- **Shareable URLs**: Each generated set has a unique URL that can be shared
+- **Responsive Design**: Optimized for both desktop and mobile devices
 
-## Expanding the ESLint configuration
+## Color Scheme
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+The app uses the official Phase 10 color palette:
+- **Base Background**: `#0443A7` (Deep Blue)
+- **Accent Colors**: 
+  - Red: `#FB041E`
+  - Blue: `#0275C5`
+  - Green: `#009224`
+  - Yellow: `#FCD700`
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Phase Types
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+The generator creates phases using these Phase 10 elements:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Sets**: Multiple cards of the same number (any color)
+- **Runs**: Cards in consecutive numerical order (any color)
+- **Colors**: Cards of the same color (any numbers)
+- **Even/Odd**: Cards that are all even (2,4,6,8,10,12) or all odd (1,3,5,7,9,11)
+- **Color Runs**: Cards in consecutive order of the same color
+- **Color Even/Odd**: Even or odd cards of the same color
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd phase-maker
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. Install dependencies:
+```bash
+npm install
 ```
+
+3. Start the development server:
+```bash
+npm run dev
+```
+
+4. Open [http://localhost:5173](http://localhost:5173) in your browser
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The build artifacts will be stored in the `dist/` directory.
+
+### Development Commands
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build locally
+
+## How to Use
+
+1. **Generate New Set**: Click "Generate New Set" to create 10 random phases
+2. **Share Set**: Click "Share Set" to copy the unique URL to your clipboard
+3. **View Shared Set**: Visit a shared URL to see the same phase set on any device
+4. **Play the Game**: Use the generated phases in your Phase 10 game!
+
+## Phase 10 Rules Quick Reference
+
+- Complete phases in order from 1 to 10
+- Wild cards can substitute for any card in any phase
+- You must complete your current phase before advancing
+- Failed phases must be attempted again next round
+- First player to complete all 10 phases wins!
+
+## URL Structure
+
+Shared phase sets use this URL format:
+```
+https://your-domain.com/?set=<unique-id>
+```
+
+The unique ID is deterministic, meaning the same ID will always generate the same phase set.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- **Phase 10** is a registered trademark of Mattel, Inc.
+- This is an unofficial fan-made tool for generating custom phase sets

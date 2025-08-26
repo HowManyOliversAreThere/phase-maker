@@ -1,0 +1,25 @@
+{
+    "name": "Phase Maker - Random Phase 10 Generator",
+    "short_name": "Phase Maker",
+    "description": "Generate random Phase 10 card game sets for endless replayability. Share custom phase sets with friends!",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0443A7",
+    "theme_color": "#0443A7",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/vite.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "maskable any"
+        }
+    ],
+    "categories": [
+        "games",
+        "entertainment",
+        "utilities"
+    ],
+    "lang": "en",
+    "scope": "/"
+}
