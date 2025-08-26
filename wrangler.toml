@@ -1,0 +1,8 @@
+name = "phase-maker"
+compatibility_date = "2025-01-01"
+
+[env.production]
+name = "phase-maker"
+
+# Static site configuration for Cloudflare Pages
+# The build output directory will be 'dist' from Vite
