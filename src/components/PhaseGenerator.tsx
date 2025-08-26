@@ -217,7 +217,7 @@ export default function PhaseGenerator() {
         <div className="min-h-screen bg-gradient-to-br from-[#0443A7] via-[#0275C5] to-[#009224] p-4 animate-in fade-in duration-500">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
-                <div className="text-center mb-8 animate-in fade-in duration-700">
+                <div className="text-center mb-8">
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-4 tracking-tight">
                         Phase Maker
                     </h1>
@@ -282,13 +282,13 @@ export default function PhaseGenerator() {
 
                 {/* Phase Set Display */}
                 {phaseSet && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom duration-700 delay-300">
+                    <div className="space-y-6">
                         {/* Phases Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {phaseSet.phases.map((phase, index) => (
                                 <Card
                                     key={phase.id}
-                                    className="border-0 shadow-xl hover:shadow-2xl transition-all duration-500 bg-white group hover:-translate-y-1 animate-in slide-in-from-bottom duration-500"
+                                    className="border-0 shadow-xl hover:shadow-2xl transition-all bg-white group hover:-translate-y-1"
                                     style={{ animationDelay: `${index * 100}ms` }}
                                 >
                                     <CardHeader className="pb-4">
