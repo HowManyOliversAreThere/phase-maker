@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Shuffle, Share2, RotateCcw, Info, CheckCircle, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { generatePhaseSet, generatePhaseSetFromId, parsePhaseSetFromUrl, generateShareableUrl } from '@/utils/phaseGenerator';
+import { useToast } from '@/components/ui/toast';
+import { generatePhaseSet, generatePhaseSetFromId, parsePhaseSetFromUrl, generateShareableUrl, rerollSinglePhase } from '@/utils/phaseGenerator';
 import type { PhaseSet } from '@/types/phase';
 
 const DIFFICULTY_COLORS = {
@@ -38,11 +39,18 @@ export default function PhaseGenerator() {
     const [shareUrl, setShareUrl] = useState('');
     const [shareStatus, setShareStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [isLoading, setIsLoading] = useState(true);
+    const [showContent, setShowContent] = useState(false);
+    const [rerollingPhases, setRerollingPhases] = useState<Set<number>>(new Set());
+
+    const { showToast } = useToast();
 
     // Load phase set from URL on component mount
     useEffect(() => {
         const loadInitialPhaseSet = async () => {
+            // Ensure loading state is visible
             setIsLoading(true);
+            setShowContent(false);
+
             const urlPhaseSetId = parsePhaseSetFromUrl();
 
             if (urlPhaseSetId) {
@@ -58,7 +66,11 @@ export default function PhaseGenerator() {
                 await generateNewPhaseSet();
             }
 
-            setIsLoading(false);
+            // Small delay to ensure smooth transition
+            setTimeout(() => {
+                setIsLoading(false);
+                setShowContent(true);
+            }, 100);
         };
 
         loadInitialPhaseSet();
@@ -66,6 +78,7 @@ export default function PhaseGenerator() {
 
     const generateNewPhaseSet = async () => {
         setIsGenerating(true);
+        setRerollingPhases(new Set()); // Clear any ongoing reroll states
 
         // Add a small delay for better UX
         await new Promise(resolve => setTimeout(resolve, 800));
@@ -99,11 +112,11 @@ export default function PhaseGenerator() {
                     text: `Check out this custom Phase 10 set I generated!`,
                     url: shareUrl,
                 });
-                setShareStatus('success');
+                showToast('Shared successfully!');
             } else if (navigator.clipboard) {
                 // Use clipboard API
                 await navigator.clipboard.writeText(shareUrl);
-                setShareStatus('success');
+                showToast('Link copied to clipboard!');
             } else {
                 // Fallback for older browsers
                 const textArea = document.createElement('textarea');
@@ -116,20 +129,54 @@ export default function PhaseGenerator() {
                 document.body.removeChild(textArea);
 
                 if (successful) {
-                    setShareStatus('success');
+                    showToast('Link copied to clipboard!');
                 } else {
-                    setShareStatus('error');
+                    showToast('Failed to copy link', 'error');
                 }
             }
         } catch (error) {
             console.error('Error sharing:', error);
-            setShareStatus('error');
+            showToast('Failed to share link', 'error');
         }
-
-        setTimeout(() => setShareStatus('idle'), 3000);
     };
 
-    const getDifficultyColor = (difficulty: number): string => {
+    const rerollPhase = async (phaseId: number) => {
+        if (!phaseSet || rerollingPhases.has(phaseId)) return;
+
+        setRerollingPhases(prev => new Set([...prev, phaseId]));
+
+        // Add a small delay for better UX
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        try {
+            const otherPhases = phaseSet.phases.filter(p => p.id !== phaseId);
+            const newPhase = rerollSinglePhase(phaseId, otherPhases);
+
+            // Create new phase set with the rerolled phase, keeping original positions
+            const updatedPhases = phaseSet.phases.map(p => p.id === phaseId ? newPhase : p);
+
+            // Create updated phase set with new timestamp to indicate change
+            const updatedPhaseSet = {
+                ...phaseSet,
+                phases: updatedPhases,
+                createdAt: new Date() // Update timestamp to show it was modified
+            };
+
+            setPhaseSet(updatedPhaseSet);
+
+            // Note: We keep the same share URL since we're not changing the fundamental set ID
+            // Users can still share this modified version
+
+        } catch (error) {
+            console.error('Error rerolling phase:', error);
+        } finally {
+            setRerollingPhases(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(phaseId);
+                return newSet;
+            });
+        }
+    }; const getDifficultyColor = (difficulty: number): string => {
         return DIFFICULTY_COLORS[difficulty as keyof typeof DIFFICULTY_COLORS] || 'bg-gray-500';
     };
 
@@ -137,7 +184,7 @@ export default function PhaseGenerator() {
         return DIFFICULTY_LABELS[difficulty as keyof typeof DIFFICULTY_LABELS] || 'Unknown';
     };
 
-    if (isLoading) {
+    if (isLoading || !showContent) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-[#0443A7] via-[#0275C5] to-[#009224] flex items-center justify-center">
                 <div className="text-center">
@@ -149,7 +196,7 @@ export default function PhaseGenerator() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#0443A7] via-[#0275C5] to-[#009224] p-4">
+        <div className="min-h-screen bg-gradient-to-br from-[#0443A7] via-[#0275C5] to-[#009224] p-4 animate-in fade-in duration-500">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="text-center mb-8 animate-in fade-in duration-700">
@@ -157,7 +204,7 @@ export default function PhaseGenerator() {
                         Phase Maker
                     </h1>
                     <p className="text-lg md:text-xl lg:text-2xl text-white/90 mb-6 max-w-3xl mx-auto leading-relaxed">
-                        Generate random Phase 10 sets for endless replayability. Share with friends and family!
+                        Generate random Phase 10 sets for endless replayability.
                     </p>
 
                     {/* Action Buttons */}
@@ -213,18 +260,6 @@ export default function PhaseGenerator() {
                 {/* Phase Set Display */}
                 {phaseSet && (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom duration-700 delay-300">
-                        {/* Set Info */}
-                        <Card className="border-0 shadow-xl bg-white/95 backdrop-blur-sm">
-                            <CardHeader className="bg-gradient-to-r from-[#FCD700] to-[#FCD700]/80">
-                                <CardTitle className="text-[#0443A7] text-2xl font-bold">
-                                    {phaseSet.name}
-                                </CardTitle>
-                                <CardDescription className="text-[#0443A7]/80 font-medium">
-                                    Set ID: {phaseSet.id} • Generated: {phaseSet.createdAt.toLocaleDateString()}
-                                </CardDescription>
-                            </CardHeader>
-                        </Card>
-
                         {/* Phases Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {phaseSet.phases.map((phase, index) => (
@@ -254,9 +289,35 @@ export default function PhaseGenerator() {
                                         <p className="text-lg text-[#0443A7] font-semibold leading-relaxed mb-4">
                                             {phase.description}
                                         </p>
-                                        <div className="flex items-center justify-between text-sm text-[#0443A7]/70 font-medium">
-                                            <span>Cards needed: {phase.cardCount}</span>
-                                            <span>Difficulty: {phase.difficulty}/10</span>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="text-sm text-[#0443A7]/70 font-medium">
+                                                <div>Cards needed: {phase.cardCount}</div>
+                                                <div>Difficulty: {phase.difficulty}/10</div>
+                                            </div>
+                                            <Button
+                                                onClick={() => rerollPhase(phase.id)}
+                                                disabled={rerollingPhases.has(phase.id) || isGenerating}
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-[#0443A7] text-white bg-[#0443A7] hover:bg-white hover:text-[#0443A7] transition-all duration-200 opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                                            >
+                                                {isGenerating ? (
+                                                    <>
+                                                        <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
+                                                        Loading...
+                                                    </>
+                                                ) : rerollingPhases.has(phase.id) ? (
+                                                    <>
+                                                        <RotateCcw className="w-4 h-4 mr-2 animate-spin" />
+                                                        Rerolling...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Shuffle className="w-4 h-4 mr-2" />
+                                                        Reroll
+                                                    </>
+                                                )}
+                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -264,14 +325,14 @@ export default function PhaseGenerator() {
                         </div>
 
                         {/* Game Rules Info */}
-                        <Card className="border-0 shadow-xl bg-[#FCD700] mt-12 animate-in fade-in slide-in-from-bottom duration-700 delay-700">
-                            <CardHeader>
+                        <Card className="border-0 shadow-xl bg-white overflow-hidden mt-12 animate-in fade-in slide-in-from-bottom duration-700 delay-700">
+                            <CardHeader className="bg-gradient-to-r from-[#FCD700] to-[#FCD700]/80 -m-px">
                                 <CardTitle className="text-[#0443A7] flex items-center gap-3 text-2xl font-bold">
                                     <Info className="w-6 h-6" />
                                     Phase 10 Rules Reference
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="text-[#0443A7] space-y-4">
+                            <CardContent className="text-[#0443A7] space-y-4 bg-white">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
                                         <h3 className="font-bold text-lg mb-3 text-[#FB041E]">Phase Types:</h3>

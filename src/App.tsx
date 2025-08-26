@@ -1,11 +1,14 @@
 import PhaseGenerator from './components/PhaseGenerator';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './components/ui/toast';
 
 function App() {
   return (
-    <ErrorBoundary>
-      <PhaseGenerator />
-    </ErrorBoundary>
+    <ToastProvider>
+      <ErrorBoundary>
+        <PhaseGenerator />
+      </ErrorBoundary>
+    </ToastProvider>
   );
 }
 

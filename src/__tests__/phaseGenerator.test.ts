@@ -3,8 +3,11 @@ import {
     generatePhaseSet,
     generatePhaseSetFromId,
     parsePhaseSetFromUrl,
-    generateShareableUrl
+    generateShareableUrl,
+    generateSinglePhase,
+    rerollSinglePhase
 } from '../utils/phaseGenerator'
+import type { Phase } from '../types/phase'
 
 describe('Phase Generator', () => {
     describe('generatePhaseSet', () => {
@@ -49,6 +52,21 @@ describe('Phase Generator', () => {
             const phaseSet1 = generatePhaseSet()
             const phaseSet2 = generatePhaseSet()
             expect(phaseSet1.id).not.toBe(phaseSet2.id)
+        })
+
+        it('should generate IDs with varying prefixes (not timestamp-based)', () => {
+            // Generate multiple IDs rapidly to ensure they don't share prefixes
+            const ids = Array.from({ length: 10 }, () => generatePhaseSet().id);
+            const prefixes = ids.map(id => id.split('-')[0]);
+
+            // At least some prefixes should be different (not all the same)
+            const uniquePrefixes = new Set(prefixes);
+            expect(uniquePrefixes.size).toBeGreaterThan(1);
+
+            // Verify ID format: 6 chars - 6 chars
+            ids.forEach(id => {
+                expect(id).toMatch(/^[a-z0-9]{6}-[a-z0-9]{6}$/);
+            });
         })
 
         it('should have created date', () => {
@@ -325,6 +343,85 @@ describe('Phase Generator', () => {
                 }
             })
         })
+
+        it('should generate large single components in later phases', () => {
+            // Generate multiple phase sets to test variety
+            const phaseSets = Array.from({ length: 20 }, () => generatePhaseSet())
+
+            let foundLargeSingleComponent = false
+            const foundDescriptions: string[] = []
+
+            phaseSets.forEach(set => {
+                // Look at phases 7-10 for large single components
+                const laterPhases = set.phases.filter(phase => phase.id >= 7)
+
+                laterPhases.forEach(phase => {
+                    const isSingleComponent = !phase.description.includes(' + ')
+                    const isLargeCard = phase.cardCount >= 8
+
+                    if (isSingleComponent && isLargeCard) {
+                        foundLargeSingleComponent = true
+                        foundDescriptions.push(phase.description)
+
+                        // Verify it's a reasonable large component type (8+ cards in single component)
+                        expect(phase.cardCount).toBeGreaterThanOrEqual(8)
+                        expect(phase.description).toMatch(/^(1 run of [89]|[89] (cards of one color|even or odd cards)|[3-9] even or odd cards of one color)$/)
+                    }
+                })
+            })
+
+            // Should find at least some large single components across 20 phase sets
+            expect(foundLargeSingleComponent).toBe(true)
+
+            // Log what we found for debugging (will be visible in test output)
+            if (!foundLargeSingleComponent) {
+                console.log('No large single components found in later phases')
+            }
+        })
+    })
+
+    describe('rerollSinglePhase', () => {
+        it('should generate a new phase that is different from the original', () => {
+            const originalPhase = generateSinglePhase(5);
+
+            // Try multiple times to ensure we get a different phase
+            let foundDifferent = false;
+            for (let i = 0; i < 10; i++) {
+                const rerolledPhase = rerollSinglePhase(5, []);
+                if (rerolledPhase.description !== originalPhase.description ||
+                    rerolledPhase.cardCount !== originalPhase.cardCount) {
+                    foundDifferent = true;
+                    break;
+                }
+            }
+
+            expect(foundDifferent).toBe(true);
+        });
+
+        it('should avoid creating duplicate phases', () => {
+            const existingPhase1 = { id: 1, description: '1 set of 6', difficulty: 3, cardCount: 6 };
+            const existingPhase2 = { id: 2, description: '1 run of 7', difficulty: 4, cardCount: 7 };
+            const existingPhases = [existingPhase1, existingPhase2];
+
+            const rerolledPhase = rerollSinglePhase(3, existingPhases);
+
+            // Should not match existing phases
+            expect(rerolledPhase.description).not.toBe(existingPhase1.description);
+            expect(rerolledPhase.description).not.toBe(existingPhase2.description);
+            expect(rerolledPhase.id).toBe(3);
+        });
+
+        it('should maintain valid card count and difficulty', () => {
+            const existingPhases: Phase[] = [];
+            const rerolledPhase = rerollSinglePhase(7, existingPhases);
+
+            expect(rerolledPhase.cardCount).toBeGreaterThanOrEqual(6);
+            expect(rerolledPhase.cardCount).toBeLessThanOrEqual(9);
+            expect(rerolledPhase.difficulty).toBeGreaterThanOrEqual(1);
+            expect(rerolledPhase.difficulty).toBeLessThanOrEqual(10);
+            expect(rerolledPhase.description).toBeDefined();
+            expect(rerolledPhase.description.length).toBeGreaterThan(0);
+        });
     })
 
     describe('Edge Cases', () => {
@@ -370,4 +467,93 @@ describe('Phase Generator', () => {
             })
         })
     })
+
+    describe('UI Component States', () => {
+        describe('Reroll Button States', () => {
+            // Helper function to simulate button state logic from PhaseGenerator component
+            const getButtonState = (isGenerating: boolean, rerollingPhases: Set<number>, phaseId: number) => {
+                const isRerolling = rerollingPhases.has(phaseId);
+                const disabled = isRerolling || isGenerating;
+
+                let buttonText: string;
+                let hasSpinner: boolean;
+
+                if (isGenerating) {
+                    buttonText = 'Loading...';
+                    hasSpinner = true;
+                } else if (isRerolling) {
+                    buttonText = 'Rerolling...';
+                    hasSpinner = true;
+                } else {
+                    buttonText = 'Reroll';
+                    hasSpinner = false;
+                }
+
+                return { disabled, buttonText, hasSpinner };
+            };
+
+            it('should show normal state when not generating or rerolling', () => {
+                const result = getButtonState(false, new Set(), 1);
+                expect(result).toEqual({
+                    disabled: false,
+                    buttonText: 'Reroll',
+                    hasSpinner: false
+                });
+            });
+
+            it('should show loading state when generating new set', () => {
+                const result = getButtonState(true, new Set(), 1);
+                expect(result).toEqual({
+                    disabled: true,
+                    buttonText: 'Loading...',
+                    hasSpinner: true
+                });
+            });
+
+            it('should show rerolling state when rerolling specific phase', () => {
+                const result = getButtonState(false, new Set([1]), 1);
+                expect(result).toEqual({
+                    disabled: true,
+                    buttonText: 'Rerolling...',
+                    hasSpinner: true
+                });
+            });
+
+            it('should prioritize loading state over rerolling state', () => {
+                // Edge case: generating new set while individual phase is rerolling
+                const result = getButtonState(true, new Set([1]), 1);
+                expect(result).toEqual({
+                    disabled: true,
+                    buttonText: 'Loading...',
+                    hasSpinner: true
+                });
+            });
+
+            it('should not affect other phases when one is rerolling', () => {
+                const rerollingPhases = new Set([1]);
+
+                // Phase 1 should be rerolling
+                const phase1Result = getButtonState(false, rerollingPhases, 1);
+                expect(phase1Result.disabled).toBe(true);
+                expect(phase1Result.buttonText).toBe('Rerolling...');
+
+                // Phase 2 should be normal
+                const phase2Result = getButtonState(false, rerollingPhases, 2);
+                expect(phase2Result.disabled).toBe(false);
+                expect(phase2Result.buttonText).toBe('Reroll');
+            });
+
+            it('should disable all buttons when generating', () => {
+                const rerollingPhases = new Set([2]); // Phase 2 was rerolling
+
+                // All phases should show loading state when generating
+                for (let phaseId = 1; phaseId <= 10; phaseId++) {
+                    const result = getButtonState(true, rerollingPhases, phaseId);
+                    expect(result.disabled).toBe(true);
+                    expect(result.buttonText).toBe('Loading...');
+                    expect(result.hasSpinner).toBe(true);
+                }
+            });
+        });
+    });
 })
