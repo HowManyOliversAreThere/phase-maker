@@ -403,8 +403,18 @@ export default function PhaseGenerator() {
 
                 {/* Footer */}
                 <footer className="text-center text-white/70 mt-16 py-8 border-t border-white/20">
-                    <p className="text-sm">
+                    <p className="text-sm mb-2">
                         Phase 10 is a trademark of Mattel. This tool is unofficial and not affiliated with Mattel.
+                    </p>
+                    <p className="text-sm">
+                        Made with ♥ by Oliver Robson - <a
+                            href="https://github.com/HowManyOliversAreThere/phase-maker"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-[#FCD700] transition-colors underline font-medium"
+                        >
+                            View source code on GitHub
+                        </a>
                     </p>
                 </footer>
             </div>
