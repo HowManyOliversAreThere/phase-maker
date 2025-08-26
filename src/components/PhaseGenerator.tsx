@@ -51,13 +51,13 @@ export default function PhaseGenerator() {
             setIsLoading(true);
             setShowContent(false);
 
-            const urlPhaseSetId = parsePhaseSetFromUrl();
+            const urlData = parsePhaseSetFromUrl();
 
-            if (urlPhaseSetId) {
+            if (urlData) {
                 try {
-                    const loadedPhaseSet = generatePhaseSetFromId(urlPhaseSetId);
+                    const loadedPhaseSet = generatePhaseSetFromId(urlData.setId, urlData.rerolls);
                     setPhaseSet(loadedPhaseSet);
-                    setShareUrl(generateShareableUrl(urlPhaseSetId));
+                    setShareUrl(generateShareableUrl(loadedPhaseSet));
                 } catch (error) {
                     console.error('Error loading phase set from URL:', error);
                     await generateNewPhaseSet();
@@ -86,11 +86,17 @@ export default function PhaseGenerator() {
         try {
             const newPhaseSet = generatePhaseSet();
             setPhaseSet(newPhaseSet);
-            setShareUrl(generateShareableUrl(newPhaseSet.id));
+            setShareUrl(generateShareableUrl(newPhaseSet));
 
             // Update URL without page reload
             const url = new URL(window.location.href);
             url.searchParams.set('set', newPhaseSet.id);
+            // Clear any reroll parameters
+            Array.from(url.searchParams.keys()).forEach(key => {
+                if (key.match(/^r\d+$/)) {
+                    url.searchParams.delete(key);
+                }
+            });
             window.history.pushState({}, '', url.toString());
         } catch (error) {
             console.error('Error generating phase set:', error);
@@ -155,17 +161,29 @@ export default function PhaseGenerator() {
             // Create new phase set with the rerolled phase, keeping original positions
             const updatedPhases = phaseSet.phases.map(p => p.id === phaseId ? newPhase : p);
 
-            // Create updated phase set with new timestamp to indicate change
+            // Track rerolls in the phase set
+            const updatedRerolls = {
+                ...phaseSet.rerolls,
+                [phaseId]: newPhase.rerollId!
+            };
+
+            // Create updated phase set with new timestamp and reroll tracking
             const updatedPhaseSet = {
                 ...phaseSet,
                 phases: updatedPhases,
+                rerolls: updatedRerolls,
                 createdAt: new Date() // Update timestamp to show it was modified
             };
 
             setPhaseSet(updatedPhaseSet);
 
-            // Note: We keep the same share URL since we're not changing the fundamental set ID
-            // Users can still share this modified version
+            // Update share URL to include reroll information
+            setShareUrl(generateShareableUrl(updatedPhaseSet));
+
+            // Update browser URL to include reroll information
+            const url = new URL(window.location.href);
+            url.searchParams.set(`r${phaseId}`, newPhase.rerollId!);
+            window.history.pushState({}, '', url.toString());
 
         } catch (error) {
             console.error('Error rerolling phase:', error);

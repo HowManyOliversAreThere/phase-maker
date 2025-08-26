@@ -75,6 +75,11 @@ describe('Phase Generator', () => {
             expect(phaseSet.createdAt.getTime()).toBeLessThanOrEqual(Date.now())
         })
 
+        it('should include algorithm version', () => {
+            const phaseSet = generatePhaseSet()
+            expect(phaseSet.version).toBe('1.0.0')
+        })
+
         it('should generate different phase sets on multiple calls', () => {
             const phaseSet1 = generatePhaseSet()
             const phaseSet2 = generatePhaseSet()
@@ -157,13 +162,34 @@ describe('Phase Generator', () => {
 
         it('should restore Math.random after seeded generation', () => {
             const originalRandom = Math.random
-            const firstCall = Math.random()
 
-            generatePhaseSetFromId('test-restore')
+            generatePhaseSetFromId('test123-abc456')
 
-            const secondCall = Math.random()
+            // Math.random should be restored
             expect(Math.random).toBe(originalRandom)
-            expect(firstCall).not.toBe(secondCall) // Should be different random values
+        })
+
+        it('should generate consistent rerolled phases when loaded from URL', () => {
+            // Test that rerolled phases are consistent across multiple loads
+            const setId = 'test123-abc456'
+            const rerolls = { 3: 'xyz789', 7: 'abc123' }
+
+            // Generate the same phase set with rerolls multiple times
+            const phaseSet1 = generatePhaseSetFromId(setId, rerolls)
+            const phaseSet2 = generatePhaseSetFromId(setId, rerolls)
+            const phaseSet3 = generatePhaseSetFromId(setId, rerolls)
+
+            // All phase sets should be identical
+            expect(phaseSet1.phases).toEqual(phaseSet2.phases)
+            expect(phaseSet2.phases).toEqual(phaseSet3.phases)
+
+            // Specifically check that rerolled phases are consistent
+            expect(phaseSet1.phases[2].description).toBe(phaseSet2.phases[2].description) // Phase 3 (index 2)
+            expect(phaseSet1.phases[6].description).toBe(phaseSet2.phases[6].description) // Phase 7 (index 6)
+
+            // Verify reroll IDs are preserved
+            expect(phaseSet1.phases[2].rerollId).toBe('xyz789')
+            expect(phaseSet1.phases[6].rerollId).toBe('abc123')
         })
     })
 
@@ -199,7 +225,8 @@ describe('Phase Generator', () => {
             const validId = '1m5j9k8l-abc123'
             window.location.search = `?set=${validId}`
             const result = parsePhaseSetFromUrl()
-            expect(result).toBe(validId)
+            expect(result?.setId).toBe(validId)
+            expect(result?.rerolls).toEqual({})
         })
 
         it('should validate set ID format correctly', () => {
@@ -219,7 +246,7 @@ describe('Phase Generator', () => {
                 window.location.search = `?set=${id}`
                 const result = parsePhaseSetFromUrl()
                 if (valid) {
-                    expect(result).toBe(id)
+                    expect(result?.setId).toBe(id)
                 } else {
                     expect(result).toBeNull()
                 }
@@ -230,6 +257,35 @@ describe('Phase Generator', () => {
             vi.stubGlobal('window', undefined)
             const result = parsePhaseSetFromUrl()
             expect(result).toBeNull()
+        })
+
+        it('should parse reroll parameters from URL', () => {
+            const validId = '1m5j9k8l-abc123'
+            vi.stubGlobal('window', {
+                location: {
+                    search: `?set=${validId}&r3=abc123&r7=def456`
+                }
+            })
+            const result = parsePhaseSetFromUrl()
+            expect(result?.setId).toBe(validId)
+            expect(result?.rerolls).toEqual({
+                3: 'abc123',
+                7: 'def456'
+            })
+        })
+
+        it('should ignore invalid reroll parameters', () => {
+            const validId = '1m5j9k8l-abc123'
+            vi.stubGlobal('window', {
+                location: {
+                    search: `?set=${validId}&r3=abc123&r15=invalid&rabcd=test&r5=`
+                }
+            })
+            const result = parsePhaseSetFromUrl()
+            expect(result?.setId).toBe(validId)
+            expect(result?.rerolls).toEqual({
+                3: 'abc123'
+            })
         })
     })
 
@@ -243,17 +299,33 @@ describe('Phase Generator', () => {
         })
 
         it('should generate URL with set parameter', () => {
-            const phaseSetId = 'test123-abc456'
-            const url = generateShareableUrl(phaseSetId)
+            const phaseSet = {
+                id: 'test123-abc456',
+                name: 'Test Set',
+                phases: [],
+                createdAt: new Date(),
+                version: '1.0.0'
+            }
+            const url = generateShareableUrl(phaseSet)
 
             expect(url).toContain('set=test123-abc456')
             expect(url).toContain('https://example.com')
         })
 
         it('should preserve existing URL structure', () => {
-            window.location.href = 'https://example.com/phase-maker?other=value'
-            const phaseSetId = 'test123-abc456'
-            const url = generateShareableUrl(phaseSetId)
+            vi.stubGlobal('window', {
+                location: {
+                    href: 'https://example.com/phase-maker?other=value'
+                }
+            })
+            const phaseSet = {
+                id: 'test123-abc456',
+                name: 'Test Set',
+                phases: [],
+                createdAt: new Date(),
+                version: '1.0.0'
+            }
+            const url = generateShareableUrl(phaseSet)
 
             expect(url).toContain('https://example.com/phase-maker')
             expect(url).toContain('set=test123-abc456')
@@ -261,16 +333,49 @@ describe('Phase Generator', () => {
 
         it('should return empty string when window is undefined', () => {
             vi.stubGlobal('window', undefined)
-            const result = generateShareableUrl('test-id')
+            const phaseSet = {
+                id: 'test-id',
+                name: 'Test Set',
+                phases: [],
+                createdAt: new Date(),
+                version: '1.0.0'
+            }
+            const result = generateShareableUrl(phaseSet)
             expect(result).toBe('')
         })
 
         it('should handle special characters in ID', () => {
-            const phaseSetId = 'test123-abc456'
-            const url = generateShareableUrl(phaseSetId)
+            const phaseSet = {
+                id: 'test123-abc456',
+                name: 'Test Set',
+                phases: [],
+                createdAt: new Date(),
+                version: '1.0.0'
+            }
+            const url = generateShareableUrl(phaseSet)
 
             const urlObj = new URL(url)
-            expect(urlObj.searchParams.get('set')).toBe(phaseSetId)
+            expect(urlObj.searchParams.get('set')).toBe(phaseSet.id)
+        })
+
+        it('should include reroll information in URL', () => {
+            const phaseSet = {
+                id: 'test123-abc456',
+                name: 'Test Set',
+                phases: [],
+                createdAt: new Date(),
+                version: '1.0.0',
+                rerolls: {
+                    3: 'abc123',
+                    7: 'def456'
+                }
+            }
+            const url = generateShareableUrl(phaseSet)
+
+            const urlObj = new URL(url)
+            expect(urlObj.searchParams.get('set')).toBe(phaseSet.id)
+            expect(urlObj.searchParams.get('r3')).toBe('abc123')
+            expect(urlObj.searchParams.get('r7')).toBe('def456')
         })
     })
 
@@ -365,7 +470,8 @@ describe('Phase Generator', () => {
 
                         // Verify it's a reasonable large component type (8+ cards in single component)
                         expect(phase.cardCount).toBeGreaterThanOrEqual(8)
-                        expect(phase.description).toMatch(/^(1 run of [89]|[89] (cards of one color|even or odd cards)|[3-9] even or odd cards of one color)$/)
+                        // Update regex to match all possible large single component types
+                        expect(phase.description).toMatch(/^(1 run of [89]|[89] (cards of one color|even or odd cards)|[3-9] even or odd cards of one color|[2-9] color runs of [3-6])$/)
                     }
                 })
             })

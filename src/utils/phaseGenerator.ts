@@ -1,5 +1,8 @@
 import type { Phase, PhaseComponent, PhaseType, PhaseSet } from '../types/phase';
 
+// Algorithm version - increment this when making breaking changes to phase generation
+const ALGORITHM_VERSION = '1.0.0';
+
 // Base phase components used in traditional Phase 10
 const PHASE_COMPONENTS: Array<{
     type: PhaseType;
@@ -372,6 +375,27 @@ export function generateSinglePhase(phaseNumber: number): Phase {
         }
     }
 
+    // Sort components for consistent descriptions
+    // Sort by: 1) type priority, 2) count (descending), 3) size (descending)
+    const typeOrder: Record<PhaseType, number> = {
+        'set': 1,
+        'run': 2,
+        'color': 3,
+        'evenOdd': 4,
+        'colorRun': 5,
+        'colorEvenOdd': 6
+    };
+
+    components.sort((a, b) => {
+        const typeComparison = typeOrder[a.type] - typeOrder[b.type];
+        if (typeComparison !== 0) return typeComparison;
+
+        const countComparison = b.count - a.count; // Higher count first
+        if (countComparison !== 0) return countComparison;
+
+        return b.size - a.size; // Higher size first
+    });
+
     const description = components.map(comp => comp.description).join(' + ');
     const difficulty = calculateDifficulty(components, phaseNumber);
 
@@ -428,28 +452,70 @@ function createVariationOfPhase(originalPhase: Phase, existingPhases: Phase[]): 
 }
 
 // Reroll a single phase while ensuring it doesn't duplicate existing phases
-export function rerollSinglePhase(phasePosition: number, existingPhases: Phase[]): Phase {
+export function rerollSinglePhase(phasePosition: number, existingPhases: Phase[], providedRerollId?: string): Phase {
+    // If we have a provided rerollId, generate deterministically
+    if (providedRerollId) {
+        const originalRandom = Math.random;
+
+        try {
+            // Seed with the specific rerollId to ensure deterministic results
+            Math.random = seedRandom(providedRerollId);
+
+            // Generate the phase deterministically
+            const deterministicPhase = generateSinglePhase(phasePosition);
+            deterministicPhase.id = phasePosition;
+            deterministicPhase.rerollId = providedRerollId;
+
+            return deterministicPhase;
+        } finally {
+            // Restore original Math.random
+            Math.random = originalRandom;
+        }
+    }
+
+    // For new rerolls (no providedRerollId), use deterministic approach with duplicate checking
     let attempts = 0;
     let newPhase: Phase | null = null;
 
-    // Try to generate a unique phase up to 20 times
     while (attempts < 20 && !newPhase) {
-        const candidatePhase = generateSinglePhase(phasePosition);
+        // Generate a new rerollId for this attempt
+        const candidateRerollId = generateRerollId();
 
-        if (!isDuplicatePhase(candidatePhase, existingPhases)) {
-            newPhase = candidatePhase;
-            newPhase.id = phasePosition; // Ensure the ID matches the position
+        // Generate phase deterministically with this rerollId  
+        const originalRandom = Math.random;
+
+        try {
+            Math.random = seedRandom(candidateRerollId);
+            const candidatePhase = generateSinglePhase(phasePosition);
+            candidatePhase.id = phasePosition;
+            candidatePhase.rerollId = candidateRerollId;
+
+            // Check for duplicates
+            if (!isDuplicatePhase(candidatePhase, existingPhases)) {
+                newPhase = candidatePhase;
+            }
+        } finally {
+            Math.random = originalRandom;
         }
 
         attempts++;
     }
 
-    // If we couldn't find a unique phase, create a variation
+    // If we couldn't find a unique phase after many attempts, create a variation
     if (!newPhase) {
-        const fallbackPhase = generateSinglePhase(phasePosition);
-        fallbackPhase.id = phasePosition;
-        newPhase = createVariationOfPhase(fallbackPhase, existingPhases);
-        newPhase.id = phasePosition; // Ensure the ID is preserved
+        const finalRerollId = generateRerollId();
+        const originalRandom = Math.random;
+
+        try {
+            Math.random = seedRandom(finalRerollId);
+            const fallbackPhase = generateSinglePhase(phasePosition);
+            fallbackPhase.id = phasePosition;
+            newPhase = createVariationOfPhase(fallbackPhase, existingPhases);
+            newPhase.id = phasePosition;
+            newPhase.rerollId = finalRerollId;
+        } finally {
+            Math.random = originalRandom;
+        }
     }
 
     return newPhase;
@@ -529,7 +595,8 @@ export function generatePhaseSet(): PhaseSet {
         id,
         name: `Phase Set ${id}`,
         phases,
-        createdAt: new Date()
+        createdAt: new Date(),
+        version: ALGORITHM_VERSION
     };
 }
 
@@ -541,8 +608,13 @@ function generateUniqueId(): string {
     return `${randomPart1}-${randomPart2}`;
 }
 
-// Parse phase set ID from URL and validate
-export function parsePhaseSetFromUrl(): string | null {
+// Generate a shorter unique ID for rerolls
+function generateRerollId(): string {
+    return Math.random().toString(36).substring(2, 8);
+}
+
+// Parse phase set ID and reroll information from URL
+export function parsePhaseSetFromUrl(): { setId: string; rerolls: Record<number, string> } | null {
     if (typeof window === 'undefined') return null;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -560,15 +632,42 @@ export function parsePhaseSetFromUrl(): string | null {
         return null;
     }
 
-    return setId;
+    // Parse reroll information
+    const rerolls: Record<number, string> = {};
+    urlParams.forEach((value, key) => {
+        const match = key.match(/^r(\d+)$/); // Match parameters like r1, r2, etc.
+        if (match) {
+            const phaseId = parseInt(match[1]);
+            if (phaseId >= 1 && phaseId <= 10 && /^[a-z0-9]{3,8}$/.test(value)) {
+                rerolls[phaseId] = value;
+            }
+        }
+    });
+
+    return { setId, rerolls };
 }
 
-// Generate URL for sharing phase set
-export function generateShareableUrl(phaseSetId: string): string {
+// Generate URL for sharing phase set with reroll information
+export function generateShareableUrl(phaseSet: PhaseSet): string {
     if (typeof window === 'undefined') return '';
 
     const url = new URL(window.location.href);
-    url.searchParams.set('set', phaseSetId);
+    url.searchParams.set('set', phaseSet.id);
+
+    // Clear any existing reroll parameters
+    Array.from(url.searchParams.keys()).forEach(key => {
+        if (key.match(/^r\d+$/)) {
+            url.searchParams.delete(key);
+        }
+    });
+
+    // Add reroll information
+    if (phaseSet.rerolls) {
+        Object.entries(phaseSet.rerolls).forEach(([phaseId, rerollId]) => {
+            url.searchParams.set(`r${phaseId}`, rerollId);
+        });
+    }
+
     return url.toString();
 }
 
@@ -587,16 +686,33 @@ function seedRandom(seed: string) {
 }
 
 // Generate deterministic phase set from ID
-export function generatePhaseSetFromId(id: string): PhaseSet {
+export function generatePhaseSetFromId(id: string, rerolls?: Record<number, string>): PhaseSet {
     const originalRandom = Math.random;
     Math.random = seedRandom(id);
 
     try {
         const phaseSet = generatePhaseSet();
+
+        // Apply rerolls if provided
+        if (rerolls) {
+            Object.entries(rerolls).forEach(([phaseIdStr, rerollId]) => {
+                const phaseId = parseInt(phaseIdStr);
+                const phaseIndex = phaseSet.phases.findIndex(p => p.id === phaseId);
+
+                if (phaseIndex !== -1) {
+                    // Generate rerolled phase - rerollSinglePhase handles its own seeding for consistency
+                    const otherPhases = phaseSet.phases.filter(p => p.id !== phaseId);
+                    const rerolledPhase = rerollSinglePhase(phaseId, otherPhases, rerollId);
+                    phaseSet.phases[phaseIndex] = rerolledPhase;
+                }
+            });
+        }
+
         return {
             ...phaseSet,
             id,
-            name: `Shared Phase Set`
+            name: `Shared Phase Set`,
+            rerolls
         };
     } finally {
         Math.random = originalRandom;

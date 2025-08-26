@@ -3,6 +3,7 @@ export interface Phase {
     description: string;
     difficulty: number; // 1-10 scale
     cardCount: number; // Total cards needed for the phase
+    rerollId?: string; // Unique ID for rerolled phases
 }
 
 export interface PhaseSet {
@@ -10,6 +11,8 @@ export interface PhaseSet {
     name: string;
     phases: Phase[];
     createdAt: Date;
+    version: string; // Algorithm version for backward compatibility
+    rerolls?: Record<number, string>; // Map of phase IDs to their reroll IDs
 }
 
 export type PhaseType =
