@@ -2,6 +2,8 @@
 
 A modern web application that generates random Phase 10 card game sets for endless replayability. Built with React, TypeScript, ShadCN/UI and Tailwind CSS.
 
+🌐 **Live App**: [https://phasemaker.oliverrobson.tech/](https://phasemaker.oliverrobson.tech/)
+
 ## Features
 
 - **Random Phase Generation**: Creates 10 unique phases with progressive difficulty
@@ -89,7 +91,7 @@ The build artifacts will be stored in the `dist/` directory.
 
 Shared phase sets use this URL format:
 ```
-https://your-domain.com/?set=<unique-id>
+https://phasemaker.oliverrobson.tech/?set=<unique-id>
 ```
 
 The unique ID is deterministic, meaning the same ID will always generate the same phase set.
