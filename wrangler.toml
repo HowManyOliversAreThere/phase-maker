@@ -7,3 +7,7 @@ name = "phase-maker"
 
 # Static site configuration for Cloudflare Pages
 # The build output directory will be 'dist' from Vite
+
+[[routes]]
+pattern = "phasemaker.oliverrobson.tech"
+custom_domain = true
